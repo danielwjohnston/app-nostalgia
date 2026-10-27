@@ -47,10 +47,16 @@ final class ExciteChatWindowController {
         let h = ExciteChatView.baseHeight * pixelScale
         var origin = CGPoint(x: 240, y: 360)
         if let parentFrame = parentWindow?.frame {
-            origin = CGPoint(
-                x: max(20, parentFrame.minX - w - 14),
-                y: parentFrame.maxY - h
-            )
+            let leftX = parentFrame.minX - w - 14
+            let rightX = parentFrame.maxX + 14
+            let screenMaxX = (parentWindow?.screen ?? NSScreen.main)?.visibleFrame.maxX ?? 1440
+            if leftX >= 20 {
+                origin = CGPoint(x: leftX, y: parentFrame.maxY - h)
+            } else if rightX + w <= screenMaxX {
+                origin = CGPoint(x: rightX, y: parentFrame.maxY - h)
+            } else {
+                origin = CGPoint(x: max(20, leftX), y: parentFrame.maxY - h)
+            }
         }
 
         let win = FlippableBorderlessWindow(
@@ -99,6 +105,8 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
     private var isDraggingWindow = false
     private var hoverSend = false
     private var hoverClose = false
+    private var isPressingClose = false
+    private var isPressingSend = false
 
     override var isFlipped: Bool { true }
 
@@ -228,7 +236,7 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
 
         // Close [X] button at top right
         let closeRect = NSRect(x: w - 24, y: 14, width: 16, height: 14)
-        drawBeveledButton(in: closeRect, label: "×", hot: hoverClose, pressed: false)
+        drawBeveledButton(in: closeRect, label: "×", hot: hoverClose, pressed: isPressingClose)
 
         // Buddy Header Strip (y: 32..52)
         let buddyStrip = NSRect(x: 12, y: 34, width: w - 24, height: 20)
@@ -318,7 +326,7 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
 
         // Send button next to inputField
         let sendRect = NSRect(x: 196, y: 224, width: 52, height: 22)
-        drawBeveledButton(in: sendRect, label: "Send", hot: hoverSend, pressed: false)
+        drawBeveledButton(in: sendRect, label: "Send", hot: hoverSend, pressed: isPressingSend)
 
         // Bottom status footer
         let footAttrs: [NSAttributedString.Key: Any] = [
@@ -366,7 +374,14 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
             .foregroundColor: NSColor.white,
             .paragraphStyle: pStyle
         ]
-        (label as NSString).draw(in: rect.offsetBy(dx: 0, dy: 4), withAttributes: attrs)
+        let textSize = (label as NSString).size(withAttributes: attrs)
+        let textRect = NSRect(
+            x: rect.origin.x + (rect.width - textSize.width) / 2.0 + (pressed ? 1 : 0),
+            y: rect.origin.y + (rect.height - textSize.height) / 2.0 - 0.5 + (pressed ? 1 : 0),
+            width: textSize.width,
+            height: textSize.height
+        )
+        (label as NSString).draw(in: textRect, withAttributes: attrs)
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -380,6 +395,13 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
             hoverClose = newClose
             needsDisplay = true
         }
+        if newClose {
+            toolTip = "Close Chat Window (Esc)"
+        } else if newSend {
+            toolTip = "Send Message (Return)"
+        } else {
+            toolTip = nil
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -388,12 +410,13 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
         let closeRect = NSRect(x: Self.baseWidth - 24, y: 14, width: 16, height: 14)
 
         if closeRect.contains(pt) {
-            AssetManager.shared.playSound("wav356")
-            window?.orderOut(nil)
+            isPressingClose = true
+            needsDisplay = true
             return
         }
         if sendRect.contains(pt) {
-            onSendTriggered()
+            isPressingSend = true
+            needsDisplay = true
             return
         }
         if pt.y < 54 {
@@ -404,6 +427,26 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if isPressingClose {
+            let pt = toLogical(convert(event.locationInWindow, from: nil))
+            let closeRect = NSRect(x: Self.baseWidth - 24, y: 14, width: 16, height: 14)
+            let stillIn = closeRect.contains(pt)
+            if stillIn != hoverClose {
+                hoverClose = stillIn
+                needsDisplay = true
+            }
+            return
+        }
+        if isPressingSend {
+            let pt = toLogical(convert(event.locationInWindow, from: nil))
+            let sendRect = NSRect(x: 196, y: 224, width: 52, height: 22)
+            let stillIn = sendRect.contains(pt)
+            if stillIn != hoverSend {
+                hoverSend = stillIn
+                needsDisplay = true
+            }
+            return
+        }
         guard isDraggingWindow, let win = window else { return }
         let cur = NSEvent.mouseLocation
         let dx = cur.x - dragStartMouse.x
@@ -412,6 +455,28 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseUp(with event: NSEvent) {
+        if isPressingClose {
+            isPressingClose = false
+            let pt = toLogical(convert(event.locationInWindow, from: nil))
+            let closeRect = NSRect(x: Self.baseWidth - 24, y: 14, width: 16, height: 14)
+            if closeRect.contains(pt) {
+                AssetManager.shared.playSound("wav356")
+                window?.orderOut(nil)
+            } else {
+                needsDisplay = true
+            }
+            return
+        }
+        if isPressingSend {
+            isPressingSend = false
+            let pt = toLogical(convert(event.locationInWindow, from: nil))
+            let sendRect = NSRect(x: 196, y: 224, width: 52, height: 22)
+            if sendRect.contains(pt) {
+                onSendTriggered()
+            }
+            needsDisplay = true
+            return
+        }
         isDraggingWindow = false
     }
 

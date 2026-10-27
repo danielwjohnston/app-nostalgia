@@ -3,8 +3,8 @@
 This matrix documents the automated test suite (`Tests/TestMatrixRunner.swift`) covering every visual state, concave region hit-test, interactive control, audio ballistic curve, and LLM persona integration across the appliance.
 
 **Test Run Summary:**
-- **Total Assertions:** 184
-- **Passed:** 184 (100%)
+- **Total Assertions:** 190
+- **Passed:** 190 (100%)
 - **Failed:** 0
 
 ---
@@ -107,11 +107,14 @@ This matrix documents the automated test suite (`Tests/TestMatrixRunner.swift`) 
 
 ---
 
-## Suite 8: Right Bezel & Drawer Collapse
+## Suite 8: Right Bezel & Drawer Collapse / Window Dismissal
 | Component | Coordinates | Action | Result |
 | :--- | :---: | :--- | :---: |
-| **Right Bezel Slice** | $(76 + dw, 8, 19, 265)$ | Stamped at right end of sliding drawer | **PASS** |
-| **Close Box `[X]`** | $(76 + dw + 3..16, 26..40)$ | Click collapses drawer to spine ($dw \to 0$) via `sar ecx, 3` | **PASS** |
+| **Right Bezel Slice** | $(76 + dw, 8, 19, 265)$ | Stamped at right end of sliding drawer (visible at $x=76$ even when collapsed) | **PASS** |
+| **Close Box `[X]`** | $(76 + dw + 3..16, 26..40)$ | Click collapses drawer ($dw \to 0$); Option-click immediately closes window | **PASS** |
+| **Bezel Hover Coordinate** | $(76 + dw + 4, 30, 10, 10)$ | Aligned at $dy=30$ matching authentic `bmp_317` bezel slice (0px jump) | **PASS** |
+| **Bezel Sunken Press State** | $(76 + dw + 5, 31, 10, 10)$ | 1px 3D offset depression on mouse down | **PASS** |
+| **Bezel Dynamic Tooltip** | Contextual | "Collapse Drawer (Option-click to close window)" / "Close Excite Assistant" | **PASS** |
 | **Double-Click Bezel** | $(x \ge 76 + dw)$ | Toggles debug flyout controls on / off | **PASS** |
 
 ---

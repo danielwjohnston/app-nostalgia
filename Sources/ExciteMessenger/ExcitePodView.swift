@@ -56,6 +56,7 @@ final class ExcitePodView: NSView {
 
     // Volume Slider dragging
     private var isDraggingVolume = false
+    private var isPressingBezelClose = false
 
     // Window Dragging State
     private var isDraggingWindow = false
@@ -287,16 +288,17 @@ final class ExcitePodView: NSView {
 
             // Render Active Tab Content inside Drawer
             renderActiveTabContent(ctx, bmp317: bmp317)
-
-            // Right Bezel End-Cap at (76 + dw, 8, 19, 265)
-            let bezelX = 76 + dw
-            drawSprite(ctx, image: bmp317, sx: 77, sy: 28, sw: 19, sh: 265, dx: bezelX, dy: 8)
-            // Close [X] button hover on bezel
-            if hoverZone == "bezel_close" {
-                drawSprite(ctx, image: bmp317, sx: 397, sy: 72, sw: 10, sh: 10, dx: bezelX + 4, dy: 28)
-            }
-
             ctx.restoreGState()
+        }
+
+        // Right Bezel End-Cap at (76 + dw, 8, 19, 265)
+        let bezelX = 76 + dw
+        drawSprite(ctx, image: bmp317, sx: 77, sy: 28, sw: 19, sh: 265, dx: bezelX, dy: 8)
+        // Close [X] button hover / pressed on bezel (authentic coordinate at dy: 30)
+        if isPressingBezelClose {
+            drawSprite(ctx, image: bmp317, sx: 397, sy: 72, sw: 10, sh: 10, dx: bezelX + 5, dy: 31)
+        } else if hoverZone == "bezel_close" {
+            drawSprite(ctx, image: bmp317, sx: 397, sy: 72, sw: 10, sh: 10, dx: bezelX + 4, dy: 30)
         }
 
         // 2. LEFT CAPSULE SPINE (x = 0..76, y = 0..282)
@@ -1119,6 +1121,23 @@ final class ExcitePodView: NSView {
             hoverZone = newZone
             needsDisplay = true
         }
+
+        if newZone == "bezel_close" {
+            toolTip = targetDrawerWidth > 0 ? "Collapse Drawer (Option-click to close window)" : "Close Excite Assistant"
+        } else if newZone == "orb_excite" {
+            toolTip = "Excite Orb (Refresh Live Feeds)"
+        } else if newZone == "orb_help" {
+            toolTip = "Help & Shortcuts Guide"
+        } else if newZone?.hasPrefix("tab_") == true {
+            let idStr = newZone!.replacingOccurrences(of: "tab_", with: "")
+            if let id = Int(idStr), let t = Self.tabs.first(where: { $0.id == id }) {
+                toolTip = "\(t.name) (Tab \(id + 1))"
+            } else {
+                toolTip = nil
+            }
+        } else {
+            toolTip = nil
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -1182,13 +1201,7 @@ final class ExcitePodView: NSView {
         // Right Bezel [X] Close Button (dx: bezelX + 3..16, dy: 26..40)
         let bezelX = CGFloat(76 + drawerWidth)
         if pt.x >= bezelX + 3 && pt.x <= bezelX + 16 && pt.y >= 26 && pt.y <= 40 {
-            AssetManager.shared.playSound("wav356", enabled: soundEnabled)
-            if targetDrawerWidth > 0 {
-                targetDrawerWidth = 0
-                AssetManager.shared.playSound("wav358", enabled: soundEnabled)
-            } else {
-                window?.orderOut(nil)
-            }
+            isPressingBezelClose = true
             needsDisplay = true
             return
         }
@@ -1289,6 +1302,17 @@ final class ExcitePodView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if isPressingBezelClose {
+            let pt = toLogical(convert(event.locationInWindow, from: nil))
+            let bezelX = CGFloat(76 + drawerWidth)
+            let stillIn = (pt.x >= bezelX + 3 && pt.x <= bezelX + 16 && pt.y >= 26 && pt.y <= 40)
+            if stillIn != (hoverZone == "bezel_close") {
+                hoverZone = stillIn ? "bezel_close" : nil
+                needsDisplay = true
+            }
+            return
+        }
+
         if isDraggingVolume {
             let pt = toLogical(convert(event.locationInWindow, from: nil))
             let vol = Float((pt.x - 114) / 148.0)
@@ -1307,6 +1331,25 @@ final class ExcitePodView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        if isPressingBezelClose {
+            isPressingBezelClose = false
+            let pt = toLogical(convert(event.locationInWindow, from: nil))
+            let bezelX = CGFloat(76 + drawerWidth)
+            if pt.x >= bezelX + 3 && pt.x <= bezelX + 16 && pt.y >= 26 && pt.y <= 40 {
+                AssetManager.shared.playSound("wav356", enabled: soundEnabled)
+                if event.modifierFlags.contains(.option) {
+                    window?.orderOut(nil)
+                } else if targetDrawerWidth > 0 {
+                    targetDrawerWidth = 0
+                    AssetManager.shared.playSound("wav358", enabled: soundEnabled)
+                } else {
+                    window?.orderOut(nil)
+                }
+            }
+            needsDisplay = true
+            return
+        }
+
         isDraggingWindow = false
         isDraggingVolume = false
         pressedTab = -1
