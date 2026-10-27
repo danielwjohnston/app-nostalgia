@@ -406,19 +406,88 @@ final class LiveServices {
 
     // MARK: - Live Weather (Open-Meteo)
 
+    nonisolated static let stateAbbreviations: [String: String] = [
+        "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR", "California": "CA",
+        "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE", "Florida": "FL", "Georgia": "GA",
+        "Hawaii": "HI", "Idaho": "ID", "Illinois": "IL", "Indiana": "IN", "Iowa": "IA",
+        "Kansas": "KS", "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+        "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS", "Missouri": "MO",
+        "Montana": "MT", "Nebraska": "NE", "Nevada": "NV", "New Hampshire": "NH", "New Jersey": "NJ",
+        "New Mexico": "NM", "New York": "NY", "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH",
+        "Oklahoma": "OK", "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI", "South Carolina": "SC",
+        "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX", "Utah": "UT", "Vermont": "VT",
+        "Virginia": "VA", "Washington": "WA", "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY",
+        "District of Columbia": "DC",
+        "Alberta": "AB", "British Columbia": "BC", "Manitoba": "MB", "New Brunswick": "NB",
+        "Newfoundland and Labrador": "NL", "Nova Scotia": "NS", "Ontario": "ON", "Prince Edward Island": "PE",
+        "Quebec": "QC", "Saskatchewan": "SK"
+    ]
+
     func updateWeatherLocation(cityQuery: String) {
-        let encoded = cityQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Redwood%20City"
-        guard let url = URL(string: "https://geocoding-api.open-meteo.com/v1/search?name=\(encoded)&count=1&language=en&format=json") else { return }
+        let trimmed = cityQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        // Parse possible "City, State" or "City State"
+        var cleanCity = trimmed
+        var stateHint: String? = nil
+        if trimmed.contains(",") {
+            let parts = trimmed.components(separatedBy: ",")
+            cleanCity = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+            if parts.count > 1 {
+                stateHint = parts[1].trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            }
+        } else {
+            let tokens = trimmed.components(separatedBy: " ")
+            if tokens.count >= 2, let last = tokens.last, (last.count == 2 || Self.stateAbbreviations.values.contains(last.uppercased())) {
+                stateHint = last.uppercased()
+                cleanCity = tokens.dropLast().joined(separator: " ")
+            }
+        }
+
+        let encoded = cleanCity.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Redwood%20City"
+        guard let url = URL(string: "https://geocoding-api.open-meteo.com/v1/search?name=\(encoded)&count=10&language=en&format=json") else { return }
         URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
             guard let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let results = json["results"] as? [[String: Any]],
-                  let first = results.first,
-                  let name = first["name"] as? String,
-                  let lat = first["latitude"] as? Double,
-                  let lon = first["longitude"] as? Double else { return }
-            let admin1 = first["admin1"] as? String ?? ""
-            let label = admin1.isEmpty ? name : "\(name), \(admin1.prefix(2).uppercased())"
+                  !results.isEmpty else { return }
+
+            // Find best matching result
+            var chosen = results.first!
+            if let hint = stateHint {
+                for r in results {
+                    let admin1 = (r["admin1"] as? String) ?? ""
+                    let code = Self.stateAbbreviations[admin1]?.uppercased() ?? admin1.uppercased()
+                    if code == hint || admin1.uppercased() == hint {
+                        chosen = r
+                        break
+                    }
+                }
+            } else {
+                // Prefer US / primary populated location if ambiguity
+                if let usMatch = results.first(where: { ($0["country_code"] as? String) == "US" }) {
+                    chosen = usMatch
+                }
+            }
+
+            guard let name = chosen["name"] as? String,
+                  let lat = chosen["latitude"] as? Double,
+                  let lon = chosen["longitude"] as? Double else { return }
+
+            let admin1 = chosen["admin1"] as? String ?? ""
+            let countryCode = chosen["country_code"] as? String ?? ""
+            let stateLabel: String
+            if let usState = Self.stateAbbreviations[admin1] {
+                stateLabel = usState
+            } else if !admin1.isEmpty {
+                stateLabel = admin1
+            } else if !countryCode.isEmpty {
+                stateLabel = countryCode
+            } else {
+                stateLabel = ""
+            }
+
+            let label = stateLabel.isEmpty ? name : "\(name), \(stateLabel)"
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 self.weatherCity = label
@@ -806,7 +875,7 @@ final class LiveServices {
         onUpdate?()
     }
 
-    func currentHoroscopeText() -> (sign: String, forecast: String, lucky: String) {
+    func currentHoroscopeText() -> (sign: String, forecast: String, lucky: String, rating: String) {
         let sign = zodiacSigns[selectedZodiacIndex]
         let forecasts = [
             "Mercury trine Jupiter energizes your creative communications today. An old 1999 project or interface idea returns with unexpected modern momentum.",
@@ -818,7 +887,8 @@ final class LiveServices {
         return (
             sign: sign,
             forecast: forecasts[idx],
-            lucky: "Lucky Numbers: 99, 317, 42, 8 • Star Rating: ★★★★☆"
+            lucky: "Lucky Numbers: 99, 317, 42, 8",
+            rating: "Star Rating: ★★★★☆"
         )
     }
 

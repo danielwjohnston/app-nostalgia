@@ -254,8 +254,12 @@ final class ExcitePodView: NSView {
             ctx.saveGState()
             ctx.clip(to: CGRect(x: 76, y: 0, width: dw + 22, height: 286))
 
-            // Background Fill: #B5B49C warm putty
-            ctx.setFillColor(red: 181/255.0, green: 180/255.0, blue: 156/255.0, alpha: 1.0)
+            // Background Fill: #B5B49C warm putty (or #5C607A 2000 titanium slate)
+            if useSlate2000Tint {
+                ctx.setFillColor(red: 92/255.0, green: 96/255.0, blue: 122/255.0, alpha: 1.0)
+            } else {
+                ctx.setFillColor(red: 181/255.0, green: 180/255.0, blue: 156/255.0, alpha: 1.0)
+            }
             ctx.fill(CGRect(x: 76, y: 38, width: 234, height: 216))
 
             // Top Header: bmp342 ("eXcite ASSISTANT") at (76, 5, 234, 33)
@@ -333,18 +337,6 @@ final class ExcitePodView: NSView {
             drawSprite(ctx, image: bmp317, sx: 369, sy: 106, sw: 23, sh: 23, dx: 24, dy: 236)
         }
 
-        // Optional 2000 Slate Tint Overlay
-        if useSlate2000Tint {
-            ctx.saveGState()
-            ctx.setBlendMode(.color)
-            NSColor(calibratedRed: 0.38, green: 0.42, blue: 0.72, alpha: 0.55).setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 76, height: 282))
-            if drawerWidth > 0 {
-                ctx.fill(CGRect(x: 76, y: 0, width: dw + 19, height: 286))
-            }
-            ctx.restoreGState()
-        }
-
         // 3. RIGHT DIAGNOSTIC HARDWARE PILLS (Only shown when toggled on)
         if showFlyoutControls {
             drawDiagnosticHardwarePanel(ctx)
@@ -364,6 +356,10 @@ final class ExcitePodView: NSView {
         let assets = AssetManager.shared
         let srv = LiveServices.shared
         let t = Self.tabs[activeTab]
+
+        ctx.saveGState()
+        // Content area bounds: strictly clipped between left spine (x: 76) and right bezel (x: 310), y: 38 .. 254
+        ctx.clip(to: CGRect(x: 76, y: 38, width: 234, height: 216))
 
         switch t.key {
         case "TuneIn":
@@ -518,11 +514,14 @@ final class ExcitePodView: NSView {
                 NSColor(calibratedRed: 0.92, green: 0.94, blue: 1.0, alpha: 1.0).setFill()
                 cityRect.fill()
             }
+            let pCity = NSMutableParagraphStyle()
+            pCity.lineBreakMode = .byTruncatingTail
             let cityAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.boldSystemFont(ofSize: 10.5),
-                .foregroundColor: isCityHover ? NSColor.systemBlue : NSColor(calibratedRed: 0.1, green: 0.2, blue: 0.5, alpha: 1.0)
+                .font: NSFont.boldSystemFont(ofSize: 10.0),
+                .foregroundColor: isCityHover ? NSColor.systemBlue : NSColor(calibratedRed: 0.1, green: 0.2, blue: 0.5, alpha: 1.0),
+                .paragraphStyle: pCity
             ]
-            ("\(srv.weatherCity) — \(srv.currentTempF)°F (Click to change)" as NSString).draw(at: NSPoint(x: 88, y: 62), withAttributes: cityAttrs)
+            ("\(srv.weatherCity) — \(srv.currentTempF)°F (Click to change)" as NSString).draw(in: NSRect(x: 88, y: 62, width: 208, height: 15), withAttributes: cityAttrs)
             clickableRows.append((cityRect, { [weak self] in
                 self?.showWeatherCityPrompt()
             }))
@@ -538,11 +537,14 @@ final class ExcitePodView: NSView {
                     .foregroundColor: NSColor.black
                 ]
                 (day.dayName as NSString).draw(at: NSPoint(x: 122, y: wy + 2), withAttributes: dayAttrs)
+                let pCond = NSMutableParagraphStyle()
+                pCond.lineBreakMode = .byTruncatingTail
                 let condAttrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 9.5),
-                    .foregroundColor: NSColor(calibratedRed: 0.3, green: 0.3, blue: 0.3, alpha: 1.0)
+                    .font: NSFont.systemFont(ofSize: 9.0),
+                    .foregroundColor: NSColor(calibratedRed: 0.3, green: 0.3, blue: 0.3, alpha: 1.0),
+                    .paragraphStyle: pCond
                 ]
-                ("\(day.condition)  •  High: \(day.highF)° Low: \(day.lowF)°" as NSString).draw(at: NSPoint(x: 156, y: wy + 2), withAttributes: condAttrs)
+                ("\(day.condition)  •  H:\(day.highF)° L:\(day.lowF)°" as NSString).draw(in: NSRect(x: 154, y: wy + 2, width: 144, height: 14), withAttributes: condAttrs)
                 wy += 25
             }
 
@@ -608,17 +610,23 @@ final class ExcitePodView: NSView {
                     .font: NSFont.boldSystemFont(ofSize: 9.5),
                     .foregroundColor: NSColor(calibratedRed: 0.1, green: 0.3, blue: 0.7, alpha: 1.0)
                 ]
+                let pShow = NSMutableParagraphStyle()
+                pShow.lineBreakMode = .byTruncatingTail
                 let showAttrs: [NSAttributedString.Key: Any] = [
                     .font: NSFont.boldSystemFont(ofSize: 10),
-                    .foregroundColor: NSColor.black
+                    .foregroundColor: NSColor.black,
+                    .paragraphStyle: pShow
                 ]
+                let pEp = NSMutableParagraphStyle()
+                pEp.lineBreakMode = .byTruncatingTail
                 let epAttrs: [NSAttributedString.Key: Any] = [
                     .font: NSFont.systemFont(ofSize: 9),
-                    .foregroundColor: NSColor(calibratedRed: 0.4, green: 0.4, blue: 0.4, alpha: 1.0)
+                    .foregroundColor: NSColor(calibratedRed: 0.4, green: 0.4, blue: 0.4, alpha: 1.0),
+                    .paragraphStyle: pEp
                 ]
                 ("\(tv.time) [\(tv.network)]" as NSString).draw(at: NSPoint(x: 86, y: ty + 2), withAttributes: timeAttrs)
-                (tv.showTitle as NSString).draw(at: NSPoint(x: 144, y: ty + 2), withAttributes: showAttrs)
-                ("\(tv.episodeTitle) • \(tv.rating)" as NSString).draw(at: NSPoint(x: 86, y: ty + 16), withAttributes: epAttrs)
+                (tv.showTitle as NSString).draw(in: NSRect(x: 144, y: ty + 2, width: 154, height: 14), withAttributes: showAttrs)
+                ("\(tv.episodeTitle) • \(tv.rating)" as NSString).draw(in: NSRect(x: 86, y: ty + 16, width: 212, height: 14), withAttributes: epAttrs)
                 if let url = tv.url {
                     clickableRows.append((rowRect, { NSWorkspace.shared.open(url) }))
                 }
@@ -638,16 +646,22 @@ final class ExcitePodView: NSView {
                     NSColor(calibratedRed: 0.94, green: 0.98, blue: 0.94, alpha: 1.0).setFill()
                     rowRect.fill()
                 }
+                let pDeal = NSMutableParagraphStyle()
+                pDeal.lineBreakMode = .byTruncatingTail
                 let tAttrs: [NSAttributedString.Key: Any] = [
                     .font: NSFont.boldSystemFont(ofSize: 10),
-                    .foregroundColor: NSColor.black
+                    .foregroundColor: NSColor.black,
+                    .paragraphStyle: pDeal
                 ]
+                let pPrice = NSMutableParagraphStyle()
+                pPrice.lineBreakMode = .byTruncatingTail
                 let prAttrs: [NSAttributedString.Key: Any] = [
                     .font: NSFont.boldSystemFont(ofSize: 9.5),
-                    .foregroundColor: NSColor(calibratedRed: 0.0, green: 0.55, blue: 0.1, alpha: 1.0)
+                    .foregroundColor: NSColor(calibratedRed: 0.0, green: 0.55, blue: 0.1, alpha: 1.0),
+                    .paragraphStyle: pPrice
                 ]
-                (d.title as NSString).draw(at: NSPoint(x: 86, y: dy + 2), withAttributes: tAttrs)
-                ("\(d.salePrice) (Reg \(d.normalPrice), \(d.savingsPct))" as NSString).draw(at: NSPoint(x: 86, y: dy + 16), withAttributes: prAttrs)
+                (d.title as NSString).draw(in: NSRect(x: 86, y: dy + 2, width: 212, height: 14), withAttributes: tAttrs)
+                ("\(d.salePrice) (Reg \(d.normalPrice), \(d.savingsPct))" as NSString).draw(in: NSRect(x: 86, y: dy + 16, width: 212, height: 14), withAttributes: prAttrs)
                 if let url = d.url {
                     clickableRows.append((rowRect, { NSWorkspace.shared.open(url) }))
                 }
@@ -670,28 +684,49 @@ final class ExcitePodView: NSView {
             if let bmp229 = assets.bmp229 {
                 drawSprite(ctx, image: bmp229, sx: srv.selectedZodiacIndex * 50, sy: 0, sw: 50, sh: 48, dx: 86, dy: 64, dw: 36, dh: 35)
             }
+            let pZodiac = NSMutableParagraphStyle()
+            pZodiac.lineBreakMode = .byTruncatingTail
             let zAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.boldSystemFont(ofSize: 11),
-                .foregroundColor: isSignHover ? NSColor.systemPurple : NSColor(calibratedRed: 0.45, green: 0.1, blue: 0.5, alpha: 1.0)
+                .font: NSFont.boldSystemFont(ofSize: 10.5),
+                .foregroundColor: isSignHover ? NSColor.systemPurple : NSColor(calibratedRed: 0.45, green: 0.1, blue: 0.5, alpha: 1.0),
+                .paragraphStyle: pZodiac
             ]
-            ("\(hInfo.sign) (Click to switch)" as NSString).draw(at: NSPoint(x: 128, y: 66), withAttributes: zAttrs)
+            (hInfo.sign as NSString).draw(in: NSRect(x: 126, y: 64, width: 168, height: 16), withAttributes: zAttrs)
+
+            let cycleAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 9.0),
+                .foregroundColor: isSignHover ? NSColor.systemPurple : NSColor(calibratedRed: 0.5, green: 0.4, blue: 0.6, alpha: 1.0)
+            ]
+            ("Click to cycle sign ▸" as NSString).draw(at: NSPoint(x: 126, y: 80), withAttributes: cycleAttrs)
+
             clickableRows.append((signRect, { [weak self] in
                 AssetManager.shared.playSound("wav356", enabled: self?.soundEnabled ?? true)
                 LiveServices.shared.cycleZodiacSign()
                 self?.needsDisplay = true
             }))
 
+            let predRect = NSRect(x: 88, y: 104, width: 210, height: 74)
+            let pStyle = NSMutableParagraphStyle()
+            pStyle.lineBreakMode = .byWordWrapping
+            pStyle.lineSpacing = 2
             let predAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont(name: "Tahoma", size: 10) ?? NSFont.systemFont(ofSize: 10),
-                .foregroundColor: NSColor(calibratedRed: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)
+                .font: NSFont(name: "Tahoma", size: 9.5) ?? NSFont.systemFont(ofSize: 9.5),
+                .foregroundColor: NSColor(calibratedRed: 0.1, green: 0.1, blue: 0.1, alpha: 1.0),
+                .paragraphStyle: pStyle
             ]
-            (hInfo.forecast as NSString).draw(in: NSRect(x: 88, y: 106, width: 210, height: 80), withAttributes: predAttrs)
+            (hInfo.forecast as NSString).draw(in: predRect, withAttributes: predAttrs)
 
             let luckyAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.boldSystemFont(ofSize: 9.5),
-                .foregroundColor: NSColor(calibratedRed: 0.2, green: 0.4, blue: 0.2, alpha: 1.0)
+                .font: NSFont.boldSystemFont(ofSize: 9.0),
+                .foregroundColor: NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.18, alpha: 1.0)
             ]
-            (hInfo.lucky as NSString).draw(at: NSPoint(x: 88, y: 194), withAttributes: luckyAttrs)
+            (hInfo.lucky as NSString).draw(at: NSPoint(x: 88, y: 184), withAttributes: luckyAttrs)
+
+            let rateAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 9.0),
+                .foregroundColor: NSColor(calibratedRed: 0.35, green: 0.35, blue: 0.35, alpha: 1.0)
+            ]
+            ("\(hInfo.rating) (Favorable)" as NSString).draw(at: NSPoint(x: 88, y: 198), withAttributes: rateAttrs)
 
         case "Search":
             let well = NSRect(x: 82, y: 44, width: 222, height: 204)
@@ -705,12 +740,15 @@ final class ExcitePodView: NSView {
             NSColor(calibratedRed: 0.40, green: 0.40, blue: 0.35, alpha: 1.0).setStroke()
             NSBezierPath(rect: searchBox).stroke()
 
+            let pSearch = NSMutableParagraphStyle()
+            pSearch.lineBreakMode = .byTruncatingTail
             let qAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont(name: "Tahoma", size: 9.5) ?? NSFont.systemFont(ofSize: 9.5),
-                .foregroundColor: NSColor(calibratedRed: 0.1, green: 0.2, blue: 0.6, alpha: 1.0)
+                .foregroundColor: NSColor(calibratedRed: 0.1, green: 0.2, blue: 0.6, alpha: 1.0),
+                .paragraphStyle: pSearch
             ]
             let qText = srv.searchQuery.isEmpty ? "Click here to search..." : srv.searchQuery
-            (qText as NSString).draw(at: NSPoint(x: 90, y: 62), withAttributes: qAttrs)
+            (qText as NSString).draw(in: NSRect(x: 90, y: 62, width: 160, height: 14), withAttributes: qAttrs)
 
             // "Search" Button at (256, 58, 44, 20)
             let btnRect = NSRect(x: 256, y: 58, width: 44, height: 20)
@@ -793,6 +831,7 @@ final class ExcitePodView: NSView {
         default:
             break
         }
+        ctx.restoreGState()
     }
 
     private func drawSunkenWhiteWell(_ ctx: CGContext, rect: NSRect) {
@@ -833,21 +872,25 @@ final class ExcitePodView: NSView {
             .font: NSFont.boldSystemFont(ofSize: 10),
             .foregroundColor: NSColor(calibratedRed: 0.80, green: 0.0, blue: 0.0, alpha: 1.0)
         ]
+        let pTitle = NSMutableParagraphStyle()
+        pTitle.lineBreakMode = .byTruncatingTail
         let tAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.boldSystemFont(ofSize: 10),
             .foregroundColor: isHover
                 ? NSColor(calibratedRed: 0.85, green: 0.0, blue: 0.0, alpha: 1.0)
-                : NSColor(calibratedRed: 0.0, green: 0.15, blue: 0.65, alpha: 1.0)
+                : NSColor(calibratedRed: 0.0, green: 0.15, blue: 0.65, alpha: 1.0),
+            .paragraphStyle: pTitle
         ]
+        let pSub = NSMutableParagraphStyle()
+        pSub.lineBreakMode = .byTruncatingTail
         let sAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 9.0),
-            .foregroundColor: NSColor(calibratedRed: 0.35, green: 0.35, blue: 0.35, alpha: 1.0)
+            .foregroundColor: NSColor(calibratedRed: 0.35, green: 0.35, blue: 0.35, alpha: 1.0),
+            .paragraphStyle: pSub
         ]
         ("▪" as NSString).draw(at: NSPoint(x: dx, y: dy + 2), withAttributes: dotAttrs)
-        let cleanT = String(title.prefix(32))
-        (cleanT as NSString).draw(at: NSPoint(x: dx + 10, y: dy + 2), withAttributes: tAttrs)
-        let cleanS = String(subtitle.prefix(38))
-        (cleanS as NSString).draw(at: NSPoint(x: dx + 10, y: dy + 15), withAttributes: sAttrs)
+        (title as NSString).draw(in: NSRect(x: dx + 10, y: dy + 2, width: 202, height: 14), withAttributes: tAttrs)
+        (subtitle as NSString).draw(in: NSRect(x: dx + 10, y: dy + 16, width: 202, height: 14), withAttributes: sAttrs)
     }
 
     private func drawDiagnosticHardwarePanel(_ ctx: CGContext) {
@@ -905,7 +948,13 @@ final class ExcitePodView: NSView {
         ctx.saveGState()
         ctx.translateBy(x: dx, y: dy + dh)
         ctx.scaleBy(x: 1.0, y: -1.0)
-        ctx.draw(image, in: CGRect(x: 0, y: 0, width: dw, height: dh))
+        let rect = CGRect(x: 0, y: 0, width: dw, height: dh)
+        ctx.draw(image, in: rect)
+        if useSlate2000Tint {
+            ctx.setBlendMode(.sourceAtop)
+            ctx.setFillColor(red: 0.35, green: 0.38, blue: 0.60, alpha: 0.35)
+            ctx.fill(rect)
+        }
         ctx.restoreGState()
     }
 
@@ -927,7 +976,13 @@ final class ExcitePodView: NSView {
         ctx.saveGState()
         ctx.translateBy(x: dx, y: dy + destH)
         ctx.scaleBy(x: 1.0, y: -1.0)
-        ctx.draw(slice, in: CGRect(x: 0, y: 0, width: destW, height: destH))
+        let rect = CGRect(x: 0, y: 0, width: destW, height: destH)
+        ctx.draw(slice, in: rect)
+        if useSlate2000Tint && (image === AssetManager.shared.bmp317 || image === AssetManager.shared.bmp342) {
+            ctx.setBlendMode(.sourceAtop)
+            ctx.setFillColor(red: 0.35, green: 0.38, blue: 0.60, alpha: 0.35)
+            ctx.fill(rect)
+        }
         ctx.restoreGState()
     }
 
@@ -1201,9 +1256,8 @@ final class ExcitePodView: NSView {
                 needsDisplay = true
                 return
             } else {
-                // Tell a Friend: open IM Chat
-                let first = LiveServices.shared.buddies.first?.handle ?? "swerndorfer@excite.com"
-                ExciteChatWindowController.shared.openChat(forHandle: first, relativeTo: window)
+                // Tell a Friend: copy GitHub link & show promotion dialog
+                showTellAFriendDialog()
                 return
             }
         }
@@ -1366,6 +1420,32 @@ final class ExcitePodView: NSView {
         }
     }
 
+    func showTellAFriendDialog() {
+        let repoUrlStr = "https://github.com/danielwjohnston/app-nostalgia"
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(repoUrlStr, forType: .string)
+        AssetManager.shared.playSound("wav357", enabled: soundEnabled)
+
+        let alert = NSAlert()
+        alert.messageText = "Tell a Friend — Excite Assistant (1999)"
+        alert.informativeText = """
+        The project repository link has been copied to your clipboard:
+
+        \(repoUrlStr)
+
+        Spread the 1999 nostalgia! Share this link with friends on Discord, X/Twitter, Reddit, or Slack to promote the authentic Excite Assistant & Messenger resurrection.
+        """
+        alert.addButton(withTitle: "Open GitHub in Browser")
+        alert.addButton(withTitle: "Copy & Done")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            if let u = URL(string: repoUrlStr) {
+                NSWorkspace.shared.open(u)
+            }
+        }
+    }
+
     func showHelpDialog() {
         let alert = NSAlert()
         alert.messageText = "Excite Assistant & Messenger Help"
@@ -1378,7 +1458,7 @@ final class ExcitePodView: NSView {
         • Top Red Orb: Refreshes all live feeds and checks messages.
         • Bottom '?' Orb: Opens this help guide.
         • Bottom Toolbar:
-          - Tell a Friend: Opens IM chat sessions.
+          - Tell a Friend: Copies GitHub project link to clipboard & promotion page.
           - Personalize: Toggles 1999 Tan / 2000 Slate skin.
           - Sign In: Configures member name and online presence.
           - Prefs: Configures Ollama AI Chatbot & 1Password.

@@ -137,6 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         aiMenu.addItem(withTitle: "Chat with Excite Live Bot", action: #selector(chatWithBot), keyEquivalent: "")
         aiMenu.addItem(NSMenuItem.separator())
         aiMenu.addItem(withTitle: "Refresh All Live Feeds", action: #selector(refreshFeeds), keyEquivalent: "r")
+        aiMenu.addItem(withTitle: "Tell a Friend (Copy GitHub Project Link)", action: #selector(tellAFriend), keyEquivalent: "")
         aiMenu.addItem(withTitle: "Ollama & 1Password Configuration...", action: #selector(showPreferences), keyEquivalent: "")
         aiMenuItem.submenu = aiMenu
         mainMenu.addItem(aiMenuItem)
@@ -271,6 +272,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func showPreferences() {
         podView?.showOllamaSettingsDialog()
+    }
+
+    @objc func tellAFriend() {
+        podView?.showTellAFriendDialog()
     }
 
     @objc func showAbout() {

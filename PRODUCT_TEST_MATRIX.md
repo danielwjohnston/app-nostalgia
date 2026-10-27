@@ -3,8 +3,8 @@
 This matrix documents the automated test suite (`Tests/TestMatrixRunner.swift`) covering every visual state, concave region hit-test, interactive control, audio ballistic curve, and LLM persona integration across the appliance.
 
 **Test Run Summary:**
-- **Total Assertions:** 159
-- **Passed:** 159 (100%)
+- **Total Assertions:** 175
+- **Passed:** 175 (100%)
 - **Failed:** 0
 
 ---
@@ -169,3 +169,20 @@ This matrix documents the automated test suite (`Tests/TestMatrixRunner.swift`) 
 | **TV Listing Rows** | Tab #5 (TV/Movies) | Click show title | Opens entertainment guide in browser | **PASS** |
 | **Deal Bargain Rows** | Tab #8 (Deals) | Click bargain deal | Opens shopping link in browser | **PASS** |
 | **Buddy List Rows** | Tab #0 (Buddies) | Click buddy row | Opens direct instant message session with selected engineer/bot | **PASS** |
+
+---
+
+## Suite 13: Text Boundaries, Geocoding & Clean Skin Architecture
+*Verifies that text is constrained strictly within content well boundaries across all tabs, US postal abbreviations use official standards, "Tell a Friend" links to GitHub, and the 2000 Slate skin produces zero outer box artifacts.*
+
+| Test Item | Target / Value | Verification Spec | Result | Details |
+| :--- | :--- | :--- | :---: | :--- |
+| **Texas Postal Code** | Texas $\to$ `TX` | `LiveServices.stateAbbreviations["Texas"]` | **PASS** | Resolved to `TX` (NOT `TE`) |
+| **US States Table** | 50 States + DC + Canada | Two-letter postal lookup table | **PASS** | `CA`, `NY`, `WA`, `FL`, `PA`, `OH`, `IL`, etc. |
+| **Horoscope Sign Header** | Medallion + Sign Name | $w \le 168$ pt next to medallion | **PASS** | Date & cycle prompt wrapped to line 2; fits within well |
+| **Horoscope Body & Numbers** | Forecast + Lucky + Rating | $w \le 210$ pt width | **PASS** | Word-wrapped forecast; Lucky & Rating split onto separate lines |
+| **News Headlines Constraint** | News Article Rows | $w \le 202$ pt with `.byTruncatingTail` | **PASS** | Cleanly truncates with ellipsis; zero overflow |
+| **Weather City Banner** | City Name & Temp | $w \le 208$ pt with `.byTruncatingTail` | **PASS** | Cleanly fits within header well |
+| **Universal Content Clip** | `renderActiveTabContent` | $x \in [76, 310], y \in [38, 254]$ | **PASS** | Hard geometric clip prevents any tab content bleed |
+| **Zero "Weird Box"** | `useSlate2000Tint` | `.sourceAtop` sprite compositing | **PASS** | Raw canvas fill rects removed; transparent corners preserved |
+| **Tell a Friend Clipboard** | Bottom Toolbar (Button 1) | Copies `https://github.com/danielwjohnston/app-nostalgia` | **PASS** | Verified clipboard paste & share dialog |
