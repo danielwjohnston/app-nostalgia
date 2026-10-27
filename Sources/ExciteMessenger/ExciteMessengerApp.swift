@@ -46,6 +46,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LiveServices.shared.refreshAllLiveFeeds()
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            mainWindow?.makeKeyAndOrderFront(nil)
+        }
+        return true
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        LiveServices.shared.stopRadio()
+    }
+
     private func setupMainMenu() {
         let mainMenu = NSMenu()
 

@@ -414,4 +414,22 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
     override func mouseUp(with event: NSEvent) {
         isDraggingWindow = false
     }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { // ESC key
+            AssetManager.shared.playSound("wav356")
+            window?.orderOut(nil)
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            AssetManager.shared.playSound("wav356")
+            window?.orderOut(nil)
+            return true
+        }
+        return false
+    }
 }

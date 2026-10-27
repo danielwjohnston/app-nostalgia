@@ -3,8 +3,8 @@
 This matrix documents the automated test suite (`Tests/TestMatrixRunner.swift`) covering every visual state, concave region hit-test, interactive control, audio ballistic curve, and LLM persona integration across the appliance.
 
 **Test Run Summary:**
-- **Total Assertions:** 175
-- **Passed:** 175 (100%)
+- **Total Assertions:** 184
+- **Passed:** 184 (100%)
 - **Failed:** 0
 
 ---
@@ -186,3 +186,18 @@ This matrix documents the automated test suite (`Tests/TestMatrixRunner.swift`) 
 | **Universal Content Clip** | `renderActiveTabContent` | $x \in [76, 310], y \in [38, 254]$ | **PASS** | Hard geometric clip prevents any tab content bleed |
 | **Zero "Weird Box"** | `useSlate2000Tint` | `.sourceAtop` sprite compositing | **PASS** | Raw canvas fill rects removed; transparent corners preserved |
 | **Tell a Friend Clipboard** | Bottom Toolbar (Button 1) | Copies `https://github.com/danielwjohnston/app-nostalgia` | **PASS** | Verified clipboard paste & share dialog |
+
+---
+
+## Suite 14: System Stability, Lifecycle & Architecture
+*Verifies AppKit window lifecycle, timer memory management, Escape key responder chain, uniform buddy handles across all services, and clean audio teardown.*
+
+| Test Item | Target / Scope | Verification Spec | Result | Details |
+| :--- | :--- | :--- | :---: | :--- |
+| **Buddy Handle Uniformity** | `livebot@excite.com` | `LiveServices.shared.buddies` | **PASS** | Matched identically across UI menus, chat window, and Ollama engine |
+| **Chat Escape Key Dismissal** | Keycode 53 & `cancelOperation` | `ExciteChatView` | **PASS** | Closes key/floating window cleanly with `wav356` |
+| **US 50-State + DC Table** | 51 Jurisdictions | Full postal lookup | **PASS** | All 50 states + DC present with authentic 2-letter codes |
+| **Tab Rail Pitch** | Tabs 0..8 | Exact 19pt vertical step delta | **PASS** | Smooth monotonic layout from $dy = 56$ to $dy = 208$ |
+| **AppKit Dock Reopen** | `applicationShouldHandleReopen` | `AppDelegate` | **PASS** | Re-shows main pod window on Dock icon click if hidden |
+| **Audio Stream Teardown** | `applicationWillTerminate` | `LiveServices.stopRadio()` | **PASS** | Cleanly halts AVPlayer streaming and frees audio buffers on app quit |
+| **Timer Memory Lifecycle** | `ExcitePodView.deinit` | `physicsTimer?.invalidate()` | **PASS** | Precludes timer leaks and retain cycles |

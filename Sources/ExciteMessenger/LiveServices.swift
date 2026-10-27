@@ -238,7 +238,7 @@ final class LiveServices {
             unreadCount: 0
         ),
         BuddyContact(
-            handle: "ask_excite@excite.com",
+            handle: "livebot@excite.com",
             displayName: "Excite Live Bot",
             role: "Wikipedia / Weather / News Assistant",
             status: "Online",

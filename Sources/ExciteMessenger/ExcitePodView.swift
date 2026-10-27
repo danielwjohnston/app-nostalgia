@@ -95,6 +95,11 @@ final class ExcitePodView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    deinit {
+        physicsTimer?.invalidate()
+        physicsTimer = nil
+    }
+
     private func toLogical(_ pt: NSPoint) -> NSPoint {
         NSPoint(x: pt.x / pixelScale, y: pt.y / pixelScale)
     }
