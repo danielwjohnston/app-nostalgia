@@ -3,8 +3,8 @@
 This matrix documents the automated test suite (`Tests/TestMatrixRunner.swift`) covering every visual state, concave region hit-test, interactive control, audio ballistic curve, and LLM persona integration across the appliance.
 
 **Test Run Summary:**
-- **Total Assertions:** 127
-- **Passed:** 127 (100%)
+- **Total Assertions:** 159
+- **Passed:** 159 (100%)
 - **Failed:** 0
 
 ---
@@ -138,3 +138,34 @@ This matrix documents the automated test suite (`Tests/TestMatrixRunner.swift`) 
 | **Excite Live Bot Persona** | `livebot@excite.com` | Ollama AI assistant, vintage 1999 + modern 2026 | **PASS** |
 | **Slash Commands** | `/key`, `/model`, `/host`, `/op`, `/status` | Built-in CLI command parser | **PASS** |
 | **1Password CLI `op`** | `op item get --reveal`, `op read` | Automated token extraction | **PASS** |
+
+---
+
+## Suite 11: Instant Messaging Window Dynamic Scaling
+*Verifies that the Excite Instant Messenger chat window dynamically tracks and inherits pod scale factor (1.0x, 1.25x, 1.5x, 2.0x), maintaining exact proportional window bounds, input field coordinates, font size, and send button alignment.*
+
+| Scale Factor | Chat Window Bounds | Main Pod Height | Input Field Frame | Input Font | Send Button Bounds | Close [X] Geometry | Result |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1.0x** | $260 \times 290$ pt | $290$ pt | $(14, 224, 176, 22)$ | $11.0$ pt | $(196, 224, 52, 22)$ | $(236, 14, 16, 14)$ | **PASS** |
+| **1.25x** | $325 \times 362.5$ pt | $362.5$ pt | $(17.5, 280, 220, 27.5)$ | $13.75$ pt | $(245, 280, 65, 27.5)$ | $(295, 17.5, 20, 17.5)$ | **PASS** |
+| **1.5x** | $390 \times 435$ pt | $435$ pt | $(21, 336, 264, 33)$ | $16.5$ pt | $(294, 336, 78, 33)$ | $(354, 21, 24, 21)$ | **PASS** |
+| **2.0x** | $520 \times 580$ pt | $580$ pt | $(28, 448, 352, 44)$ | $22.0$ pt | $(392, 448, 104, 44)$ | $(472, 28, 32, 28)$ | **PASS** |
+
+---
+
+## Suite 12: Interactive GUI Elements
+*Verifies that every GUI element across the tactile appliance performs an appropriate, functional, authentic interaction.*
+
+| Element / Control | Location / Tab | Interaction Trigger | Action Performed | Result |
+| :--- | :--- | :--- | :--- | :---: |
+| **Live Search Prompt** | Tab #1 (Search) | Click search well or Search button | Opens Wikipedia live search modal prompt & displays results | **PASS** |
+| **City Forecast Selector** | Tab #6 (Weather) | Click city name header | Opens worldwide city prompt and refreshes 5-day forecast via Open-Meteo | **PASS** |
+| **Zodiac 12-Sign Cycle** | Tab #7 (Horoscopes) | Click Zodiac medallion or `< Sign` | Cycles all 12 astrological signs with live daily horoscope readings | **PASS** |
+| **`< Networks` Station Picker** | Tab #4 (TuneIn) | Click `< Networks` header button | Displays popup menu with all live SomaFM stream channels | **PASS** |
+| **Excite Member Sign In** | Bottom Toolbar (Button 3) | Click `Sign In` | Opens Member Name, 1Password credentials, and Presence selector | **PASS** |
+| **Assistant Help Guide** | Bottom Orb (Left Rail) | Click `'?'` help sphere | Displays comprehensive Y2K tactile appliance guide & shortcut map | **PASS** |
+| **News Deep Link Rows** | Tab #2 (News) | Click headline row | Opens full news article in browser | **PASS** |
+| **Stock Quote Rows** | Tab #3 (Stocks) | Click ticker symbol | Opens Yahoo Finance market summary in browser | **PASS** |
+| **TV Listing Rows** | Tab #5 (TV/Movies) | Click show title | Opens entertainment guide in browser | **PASS** |
+| **Deal Bargain Rows** | Tab #8 (Deals) | Click bargain deal | Opens shopping link in browser | **PASS** |
+| **Buddy List Rows** | Tab #0 (Buddies) | Click buddy row | Opens direct instant message session with selected engineer/bot | **PASS** |

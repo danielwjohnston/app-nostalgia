@@ -4,8 +4,35 @@ import AppKit
 final class ExciteChatWindowController {
     static let shared = ExciteChatWindowController()
 
+    private(set) var pixelScale: CGFloat = 1.0
     private var windowsByHandle: [String: NSWindow] = [:]
     private var viewsByHandle: [String: ExciteChatView] = [:]
+
+    func updateScale(_ newScale: CGFloat) {
+        self.pixelScale = newScale
+        for (handle, win) in windowsByHandle {
+            guard let view = viewsByHandle[handle] else { continue }
+            view.updateScale(newScale)
+
+            var f = win.frame
+            let topY = f.maxY
+            let leftX = f.minX
+            let newW = ExciteChatView.baseWidth * newScale
+            let newH = ExciteChatView.baseHeight * newScale
+            f.size = NSSize(width: newW, height: newH)
+            f.origin.x = leftX
+            f.origin.y = topY - newH
+            win.setFrame(f, display: true, animate: false)
+        }
+    }
+
+    func window(forHandle handle: String) -> NSWindow? {
+        windowsByHandle[handle]
+    }
+
+    func chatView(forHandle handle: String) -> ExciteChatView? {
+        viewsByHandle[handle]
+    }
 
     func openChat(forHandle handle: String, relativeTo parentWindow: NSWindow?) {
         LiveServices.shared.clearUnread(forHandle: handle)
@@ -16,8 +43,8 @@ final class ExciteChatWindowController {
             return
         }
 
-        let w: CGFloat = 260
-        let h: CGFloat = 290
+        let w = ExciteChatView.baseWidth * pixelScale
+        let h = ExciteChatView.baseHeight * pixelScale
         var origin = CGPoint(x: 240, y: 360)
         if let parentFrame = parentWindow?.frame {
             origin = CGPoint(
@@ -38,7 +65,7 @@ final class ExciteChatWindowController {
         win.level = .floating
         win.isReleasedWhenClosed = false
 
-        let chatView = ExciteChatView(frame: NSRect(x: 0, y: 0, width: w, height: h), handle: handle)
+        let chatView = ExciteChatView(frame: NSRect(x: 0, y: 0, width: w, height: h), handle: handle, pixelScale: pixelScale)
         win.contentView = chatView
         win.makeKeyAndOrderFront(nil)
         win.makeFirstResponder(chatView.inputField)
@@ -61,7 +88,11 @@ final class FlippableBorderlessWindow: NSWindow {
 }
 
 final class ExciteChatView: NSView, NSTextFieldDelegate {
+    static let baseWidth: CGFloat = 260
+    static let baseHeight: CGFloat = 290
+
     let handle: String
+    private(set) var pixelScale: CGFloat = 1.0
     let inputField = NSTextField()
     private var dragStartMouse: NSPoint = .zero
     private var dragStartOrigin: NSPoint = .zero
@@ -71,10 +102,12 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
 
     override var isFlipped: Bool { true }
 
-    init(frame frameRect: NSRect, handle: String) {
+    init(frame frameRect: NSRect, handle: String, pixelScale: CGFloat = 1.0) {
         self.handle = handle
+        self.pixelScale = pixelScale
         super.init(frame: frameRect)
         setupInputField()
+        updateInputFieldLayout()
         let area = NSTrackingArea(
             rect: bounds,
             options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
@@ -88,26 +121,48 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
         fatalError("init(coder:) has not been implemented")
     }
 
+    func updateScale(_ scale: CGFloat) {
+        self.pixelScale = scale
+        self.frame = NSRect(x: 0, y: 0, width: Self.baseWidth * scale, height: Self.baseHeight * scale)
+        updateInputFieldLayout()
+        needsDisplay = true
+    }
+
     private func setupInputField() {
-        inputField.frame = NSRect(x: 14, y: 224, width: 176, height: 22)
-        inputField.placeholderAttributedString = NSAttributedString(
-            string: "Type instant message...",
-            attributes: [
-                .foregroundColor: NSColor(calibratedRed: 0.38, green: 0.38, blue: 0.48, alpha: 1.0),
-                .font: NSFont(name: "Tahoma", size: 11) ?? NSFont.systemFont(ofSize: 11)
-            ]
-        )
-        inputField.font = NSFont(name: "Tahoma", size: 11) ?? NSFont.systemFont(ofSize: 11)
-        inputField.textColor = NSColor(calibratedRed: 0.05, green: 0.05, blue: 0.12, alpha: 1.0)
-        inputField.backgroundColor = NSColor(calibratedRed: 0.99, green: 0.99, blue: 0.96, alpha: 1.0)
         inputField.drawsBackground = true
         inputField.isBezeled = true
         inputField.bezelStyle = .squareBezel
         inputField.focusRingType = .none
+        inputField.textColor = NSColor(calibratedRed: 0.05, green: 0.05, blue: 0.12, alpha: 1.0)
+        inputField.backgroundColor = NSColor(calibratedRed: 0.99, green: 0.99, blue: 0.96, alpha: 1.0)
         inputField.delegate = self
         inputField.target = self
         inputField.action = #selector(onSendTriggered)
         addSubview(inputField)
+    }
+
+    private func updateInputFieldLayout() {
+        let logicalRect = NSRect(x: 14, y: 224, width: 176, height: 22)
+        inputField.frame = NSRect(
+            x: logicalRect.origin.x * pixelScale,
+            y: logicalRect.origin.y * pixelScale,
+            width: logicalRect.width * pixelScale,
+            height: logicalRect.height * pixelScale
+        )
+        let fontSize = max(9.0, 11.0 * pixelScale)
+        let font = NSFont(name: "Tahoma", size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
+        inputField.font = font
+        inputField.placeholderAttributedString = NSAttributedString(
+            string: "Type instant message...",
+            attributes: [
+                .foregroundColor: NSColor(calibratedRed: 0.38, green: 0.38, blue: 0.48, alpha: 1.0),
+                .font: font
+            ]
+        )
+    }
+
+    private func toLogical(_ pt: NSPoint) -> NSPoint {
+        NSPoint(x: pt.x / pixelScale, y: pt.y / pixelScale)
     }
 
     @objc private func onSendTriggered() {
@@ -120,7 +175,13 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
 
     override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+        ctx.saveGState()
+        ctx.scaleBy(x: pixelScale, y: pixelScale)
         ctx.interpolationQuality = .none
+        ctx.setShouldAntialias(true)
+
+        let w = Self.baseWidth
+        let h = Self.baseHeight
 
         let buddy = LiveServices.shared.buddies.first { $0.handle == handle }
         let displayName = buddy?.displayName ?? handle
@@ -131,12 +192,12 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
         outerPath.move(to: NSPoint(x: 16, y: 0))
         outerPath.line(to: NSPoint(x: 138, y: 0))
         outerPath.curve(to: NSPoint(x: 152, y: 10), controlPoint1: NSPoint(x: 146, y: 0), controlPoint2: NSPoint(x: 148, y: 6))
-        outerPath.line(to: NSPoint(x: bounds.width - 14, y: 10))
-        outerPath.appendArc(withCenter: NSPoint(x: bounds.width - 14, y: 24), radius: 14, startAngle: 270, endAngle: 0, clockwise: false)
-        outerPath.line(to: NSPoint(x: bounds.width, y: bounds.height - 14))
-        outerPath.appendArc(withCenter: NSPoint(x: bounds.width - 14, y: bounds.height - 14), radius: 14, startAngle: 0, endAngle: 90, clockwise: false)
-        outerPath.line(to: NSPoint(x: 14, y: bounds.height))
-        outerPath.appendArc(withCenter: NSPoint(x: 14, y: bounds.height - 14), radius: 14, startAngle: 90, endAngle: 180, clockwise: false)
+        outerPath.line(to: NSPoint(x: w - 14, y: 10))
+        outerPath.appendArc(withCenter: NSPoint(x: w - 14, y: 24), radius: 14, startAngle: 270, endAngle: 0, clockwise: false)
+        outerPath.line(to: NSPoint(x: w, y: h - 14))
+        outerPath.appendArc(withCenter: NSPoint(x: w - 14, y: h - 14), radius: 14, startAngle: 0, endAngle: 90, clockwise: false)
+        outerPath.line(to: NSPoint(x: 14, y: h))
+        outerPath.appendArc(withCenter: NSPoint(x: 14, y: h - 14), radius: 14, startAngle: 90, endAngle: 180, clockwise: false)
         outerPath.line(to: NSPoint(x: 0, y: 16))
         outerPath.appendArc(withCenter: NSPoint(x: 16, y: 16), radius: 16, startAngle: 180, endAngle: 270, clockwise: false)
         outerPath.close()
@@ -166,11 +227,11 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
         }
 
         // Close [X] button at top right
-        let closeRect = NSRect(x: bounds.width - 24, y: 14, width: 16, height: 14)
+        let closeRect = NSRect(x: w - 24, y: 14, width: 16, height: 14)
         drawBeveledButton(in: closeRect, label: "×", hot: hoverClose, pressed: false)
 
         // Buddy Header Strip (y: 32..52)
-        let buddyStrip = NSRect(x: 12, y: 34, width: bounds.width - 24, height: 20)
+        let buddyStrip = NSRect(x: 12, y: 34, width: w - 24, height: 20)
         NSColor(calibratedRed: 0.30, green: 0.30, blue: 0.48, alpha: 1.0).setFill()
         buddyStrip.fill()
 
@@ -186,7 +247,7 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
         ("\(displayName) (\(status))" as NSString).draw(at: NSPoint(x: 30, y: 37), withAttributes: headerAttrs)
 
         // Sunken Transcript Well (y: 58..214)
-        let wellRect = NSRect(x: 12, y: 58, width: bounds.width - 24, height: 158)
+        let wellRect = NSRect(x: 12, y: 58, width: w - 24, height: 158)
         drawSunkenWell(in: wellRect, fill: NSColor(calibratedRed: 0.98, green: 0.98, blue: 0.95, alpha: 1.0))
 
         // Render chat messages inside the well with dynamic bottom-pinned wrapping
@@ -266,6 +327,8 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
         ]
         let statusLine = buddy?.statusMessage ?? "Excite Instant Messenger Protocol v2.0"
         (statusLine as NSString).draw(at: NSPoint(x: 14, y: 256), withAttributes: footAttrs)
+
+        ctx.restoreGState()
     }
 
     private func drawSunkenWell(in rect: NSRect, fill: NSColor) {
@@ -307,9 +370,9 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseMoved(with event: NSEvent) {
-        let pt = convert(event.locationInWindow, from: nil)
+        let pt = toLogical(convert(event.locationInWindow, from: nil))
         let sendRect = NSRect(x: 196, y: 224, width: 52, height: 22)
-        let closeRect = NSRect(x: bounds.width - 24, y: 14, width: 16, height: 14)
+        let closeRect = NSRect(x: Self.baseWidth - 24, y: 14, width: 16, height: 14)
         let newSend = sendRect.contains(pt)
         let newClose = closeRect.contains(pt)
         if newSend != hoverSend || newClose != hoverClose {
@@ -320,9 +383,9 @@ final class ExciteChatView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseDown(with event: NSEvent) {
-        let pt = convert(event.locationInWindow, from: nil)
+        let pt = toLogical(convert(event.locationInWindow, from: nil))
         let sendRect = NSRect(x: 196, y: 224, width: 52, height: 22)
-        let closeRect = NSRect(x: bounds.width - 24, y: 14, width: 16, height: 14)
+        let closeRect = NSRect(x: Self.baseWidth - 24, y: 14, width: 16, height: 14)
 
         if closeRect.contains(pt) {
             AssetManager.shared.playSound("wav356")

@@ -82,6 +82,7 @@ final class ExcitePodView: NSView {
             self?.needsDisplay = true
             ExciteChatWindowController.shared.refreshAll()
         }
+        ExciteChatWindowController.shared.updateScale(self.pixelScale)
 
         physicsTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -145,7 +146,6 @@ final class ExcitePodView: NSView {
             targetDrawerWidth = Self.drawerFullWidth
             AssetManager.shared.playSound("wav358", enabled: soundEnabled)
         } else if activeTab == idx && switchingToTab == -1 {
-            // Toggle open / close
             targetDrawerWidth = (targetDrawerWidth == 0) ? Self.drawerFullWidth : 0
             AssetManager.shared.playSound("wav358", enabled: soundEnabled)
         } else {
@@ -200,6 +200,7 @@ final class ExcitePodView: NSView {
     func setScale(_ newScale: CGFloat) {
         pixelScale = newScale
         updateWindowFrame()
+        ExciteChatWindowController.shared.updateScale(newScale)
     }
 
     func cyclePixelScale() {
@@ -375,7 +376,7 @@ final class ExcitePodView: NSView {
             let chSy = (hoverZone == "tunein_ch") ? 428 : 455
             drawSprite(ctx, image: bmp317, sx: 235, sy: chSy, sw: 77, sh: 26, dx: 76 + 157, dy: 38)
 
-            // Station Banner: bmp132 (234x60) at (76, 71) - clean, no obscuring overlay badge!
+            // Station Banner: bmp132 (234x60) at (76, 71) - clean, no obscuring badge!
             if let bmp132 = assets.bmp132 {
                 drawSprite(ctx, image: bmp132, sx: 0, sy: 0, sw: 234, sh: 60, dx: 76, dy: 71)
             }
@@ -445,17 +446,14 @@ final class ExcitePodView: NSView {
                     let strokeColor: NSColor
 
                     if i >= 12 {
-                        // Peak Red
                         fillColor = NSColor(calibratedRed: 0.95, green: 0.12, blue: 0.12, alpha: 1.0)
                         hiColor = NSColor(calibratedRed: 1.0, green: 0.65, blue: 0.65, alpha: 1.0)
                         strokeColor = NSColor(calibratedRed: 0.55, green: 0.0, blue: 0.0, alpha: 1.0)
                     } else if i >= 9 {
-                        // Amber / Yellow
                         fillColor = NSColor(calibratedRed: 1.0, green: 0.72, blue: 0.0, alpha: 1.0)
                         hiColor = NSColor(calibratedRed: 1.0, green: 0.92, blue: 0.55, alpha: 1.0)
                         strokeColor = NSColor(calibratedRed: 0.60, green: 0.40, blue: 0.0, alpha: 1.0)
                     } else {
-                        // Emerald Green
                         fillColor = NSColor(calibratedRed: 0.15, green: 0.92, blue: 0.18, alpha: 1.0)
                         hiColor = NSColor(calibratedRed: 0.68, green: 1.0, blue: 0.72, alpha: 1.0)
                         strokeColor = NSColor(calibratedRed: 0.05, green: 0.50, blue: 0.08, alpha: 1.0)
@@ -465,12 +463,10 @@ final class ExcitePodView: NSView {
                     fillColor.setFill()
                     ledRect.fill()
 
-                    // Top/Left 1px highlight (tactile illuminated diode)
                     hiColor.setFill()
                     NSRect(x: slotX, y: slotY, width: 5, height: 1).fill()
                     NSRect(x: slotX, y: slotY, width: 1, height: 9).fill()
 
-                    // Dark outline
                     strokeColor.setStroke()
                     NSBezierPath(rect: ledRect).stroke()
                 }
@@ -481,7 +477,6 @@ final class ExcitePodView: NSView {
             if let bmp124 = assets.bmp124 {
                 drawSprite(ctx, image: bmp124, sx: 0, sy: 0, sw: 234, sh: 30, dx: 76, dy: 38)
             }
-            // Active / Hover Subtab
             for i in 0..<6 {
                 let col = i % 3, row = i / 3
                 let bx = col * 78, by = row * 15
@@ -496,7 +491,6 @@ final class ExcitePodView: NSView {
             let well = NSRect(x: 82, y: 73, width: 222, height: 175)
             drawSunkenWhiteWell(ctx, rect: well)
 
-            // News Headline Items
             let items = srv.newsBySubtab[activeNewsSubtab]
             let sectionTitles = ["EXCITE WIRE — TOP STORIES", "WALL STREET & BUSINESS", "TECHNOLOGY & SCI-TECH", "ODD NEWS & OFFBEAT", "SPORTS SCORES & HEADLINES", "PHOTO OF THE DAY & ARTS"]
             drawContentWellHeader(title: sectionTitles[activeNewsSubtab], in: well)
@@ -517,15 +511,24 @@ final class ExcitePodView: NSView {
             drawSunkenWhiteWell(ctx, rect: well)
             drawContentWellHeader(title: "FIVE-DAY LOCAL WEATHER", in: well)
 
+            // Clickable City header button
+            let cityRect = NSRect(x: 86, y: 60, width: 214, height: 18)
+            let isCityHover = (hoverZone == "weather_city")
+            if isCityHover {
+                NSColor(calibratedRed: 0.92, green: 0.94, blue: 1.0, alpha: 1.0).setFill()
+                cityRect.fill()
+            }
             let cityAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.boldSystemFont(ofSize: 11),
-                .foregroundColor: NSColor(calibratedRed: 0.1, green: 0.2, blue: 0.5, alpha: 1.0)
+                .font: NSFont.boldSystemFont(ofSize: 10.5),
+                .foregroundColor: isCityHover ? NSColor.systemBlue : NSColor(calibratedRed: 0.1, green: 0.2, blue: 0.5, alpha: 1.0)
             ]
-            ("\(srv.weatherCity) — \(srv.currentTempF)°F" as NSString).draw(at: NSPoint(x: 88, y: 64), withAttributes: cityAttrs)
+            ("\(srv.weatherCity) — \(srv.currentTempF)°F (Click to change)" as NSString).draw(at: NSPoint(x: 88, y: 62), withAttributes: cityAttrs)
+            clickableRows.append((cityRect, { [weak self] in
+                self?.showWeatherCityPrompt()
+            }))
 
             var wy: CGFloat = 82
             for day in srv.weatherDays {
-                // Weather condition sprite from bmp318
                 if let bmp318 = assets.bmp318 {
                     let spriteIdx = min(10, max(0, day.spriteIndex))
                     drawSprite(ctx, image: bmp318, sx: spriteIdx * 40, sy: 0, sw: 40, sh: 31, dx: 86, dy: wy - 2, dw: 30, dh: 23)
@@ -656,15 +659,27 @@ final class ExcitePodView: NSView {
             drawSunkenWhiteWell(ctx, rect: well)
             drawContentWellHeader(title: "DAILY ZODIAC HOROSCOPES", in: well)
 
+            // Clickable Zodiac Sign strip
+            let signRect = NSRect(x: 86, y: 62, width: 214, height: 38)
+            let isSignHover = (hoverZone == "horoscope_sign")
+            if isSignHover {
+                NSColor(calibratedRed: 0.95, green: 0.92, blue: 0.98, alpha: 1.0).setFill()
+                signRect.fill()
+            }
             let hInfo = srv.currentHoroscopeText()
             if let bmp229 = assets.bmp229 {
                 drawSprite(ctx, image: bmp229, sx: srv.selectedZodiacIndex * 50, sy: 0, sw: 50, sh: 48, dx: 86, dy: 64, dw: 36, dh: 35)
             }
             let zAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.boldSystemFont(ofSize: 11),
-                .foregroundColor: NSColor(calibratedRed: 0.45, green: 0.1, blue: 0.5, alpha: 1.0)
+                .foregroundColor: isSignHover ? NSColor.systemPurple : NSColor(calibratedRed: 0.45, green: 0.1, blue: 0.5, alpha: 1.0)
             ]
-            (hInfo.sign as NSString).draw(at: NSPoint(x: 128, y: 66), withAttributes: zAttrs)
+            ("\(hInfo.sign) (Click to switch)" as NSString).draw(at: NSPoint(x: 128, y: 66), withAttributes: zAttrs)
+            clickableRows.append((signRect, { [weak self] in
+                AssetManager.shared.playSound("wav356", enabled: self?.soundEnabled ?? true)
+                LiveServices.shared.cycleZodiacSign()
+                self?.needsDisplay = true
+            }))
 
             let predAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont(name: "Tahoma", size: 10) ?? NSFont.systemFont(ofSize: 10),
@@ -683,11 +698,38 @@ final class ExcitePodView: NSView {
             drawSunkenWhiteWell(ctx, rect: well)
             drawContentWellHeader(title: "EXCITE LIVE SEARCH", in: well)
 
+            // Interactive Search Query Box at (86, 58, 168, 20)
+            let searchBox = NSRect(x: 86, y: 58, width: 168, height: 20)
+            NSColor(calibratedRed: 0.96, green: 0.96, blue: 0.92, alpha: 1.0).setFill()
+            searchBox.fill()
+            NSColor(calibratedRed: 0.40, green: 0.40, blue: 0.35, alpha: 1.0).setStroke()
+            NSBezierPath(rect: searchBox).stroke()
+
             let qAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.boldSystemFont(ofSize: 10.5),
+                .font: NSFont(name: "Tahoma", size: 9.5) ?? NSFont.systemFont(ofSize: 9.5),
                 .foregroundColor: NSColor(calibratedRed: 0.1, green: 0.2, blue: 0.6, alpha: 1.0)
             ]
-            ("Query: \"\(srv.searchQuery)\"" as NSString).draw(at: NSPoint(x: 88, y: 64), withAttributes: qAttrs)
+            let qText = srv.searchQuery.isEmpty ? "Click here to search..." : srv.searchQuery
+            (qText as NSString).draw(at: NSPoint(x: 90, y: 62), withAttributes: qAttrs)
+
+            // "Search" Button at (256, 58, 44, 20)
+            let btnRect = NSRect(x: 256, y: 58, width: 44, height: 20)
+            let isBtnHot = (hoverZone == "btn_search")
+            let btnBg = isBtnHot ? NSColor(calibratedRed: 0.85, green: 0.20, blue: 0.15, alpha: 1.0) : NSColor(calibratedRed: 0.75, green: 0.10, blue: 0.05, alpha: 1.0)
+            btnBg.setFill()
+            btnRect.fill()
+            let bAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.boldSystemFont(ofSize: 9.0),
+                .foregroundColor: NSColor.white
+            ]
+            ("Search" as NSString).draw(at: NSPoint(x: 262, y: 62), withAttributes: bAttrs)
+
+            clickableRows.append((searchBox, { [weak self] in
+                self?.showSearchPrompt()
+            }))
+            clickableRows.append((btnRect, { [weak self] in
+                self?.showSearchPrompt()
+            }))
 
             var sy: CGFloat = 84
             for (idx, r) in srv.searchResults.prefix(4).enumerated() {
@@ -727,7 +769,6 @@ final class ExcitePodView: NSView {
                     NSColor(calibratedRed: 0.92, green: 0.94, blue: 1.0, alpha: 1.0).setFill()
                     rowRect.fill()
                 }
-                // Online dot
                 let dotRect = NSRect(x: 88, y: by + 6, width: 7, height: 7)
                 NSColor(calibratedRed: 0.2, green: 0.85, blue: 0.2, alpha: 1.0).setFill()
                 NSBezierPath(ovalIn: dotRect).fill()
@@ -757,11 +798,9 @@ final class ExcitePodView: NSView {
     private func drawSunkenWhiteWell(_ ctx: CGContext, rect: NSRect) {
         NSColor.white.setFill()
         rect.fill()
-        // Top-left inset shadow
         NSColor(calibratedRed: 0.40, green: 0.40, blue: 0.35, alpha: 1.0).setFill()
         NSRect(x: rect.minX, y: rect.minY, width: rect.width, height: 1.5).fill()
         NSRect(x: rect.minX, y: rect.minY, width: 1.5, height: rect.height).fill()
-        // Bottom-right highlight
         NSColor(calibratedRed: 0.92, green: 0.92, blue: 0.88, alpha: 1.0).setFill()
         NSRect(x: rect.minX, y: rect.maxY - 1, width: rect.width, height: 1).fill()
         NSRect(x: rect.maxX - 1, y: rect.minY, width: 1, height: rect.height).fill()
@@ -870,7 +909,6 @@ final class ExcitePodView: NSView {
         ctx.restoreGState()
     }
 
-    /// Renders a sub-rectangle from a sprite sheet using top-left Win32 coordinate conventions
     private func drawSprite(
         _ ctx: CGContext,
         image: CGImage,
@@ -937,14 +975,62 @@ final class ExcitePodView: NSView {
             }
         }
 
-        // News subtabs
-        if activeTab == 2 && pt.x >= 76 && pt.x <= 310 && pt.y >= 38 && pt.y <= 68 {
-            let relX = Int(pt.x - 76)
-            let relY = Int(pt.y - 38)
-            let col = min(2, max(0, relX / 78))
-            let row = min(1, max(0, relY / 15))
-            let subIdx = row * 3 + col
-            newZone = "subtab_\(subIdx)"
+        // News subtabs & row hovers
+        if activeTab == 2 && pt.x >= 76 && pt.x <= 310 {
+            if pt.y >= 38 && pt.y <= 68 {
+                let relX = Int(pt.x - 76)
+                let relY = Int(pt.y - 38)
+                let col = min(2, max(0, relX / 78))
+                let row = min(1, max(0, relY / 15))
+                newZone = "subtab_\(row * 3 + col)"
+            } else if pt.x >= 84 && pt.x <= 302 && pt.y >= 98 && pt.y <= 242 {
+                let rowIdx = min(3, max(0, Int(pt.y - 98) / 36))
+                newZone = "news_row_\(rowIdx)"
+            }
+        }
+
+        // Weather city hover
+        if activeTab == 6 && pt.x >= 86 && pt.x <= 300 && pt.y >= 58 && pt.y <= 78 {
+            newZone = "weather_city"
+        }
+
+        // Horoscopes sign hover
+        if activeTab == 7 && pt.x >= 86 && pt.x <= 300 && pt.y >= 58 && pt.y <= 100 {
+            newZone = "horoscope_sign"
+        }
+
+        // Search bar & results hover
+        if activeTab == 1 && pt.x >= 84 && pt.x <= 302 {
+            if pt.x >= 256 && pt.x <= 300 && pt.y >= 58 && pt.y <= 78 {
+                newZone = "btn_search"
+            } else if pt.y >= 84 && pt.y <= 220 {
+                let rowIdx = min(3, max(0, Int(pt.y - 84) / 34))
+                newZone = "search_\(rowIdx)"
+            }
+        }
+
+        // Stocks row hover
+        if activeTab == 5 && pt.x >= 84 && pt.x <= 302 && pt.y >= 78 && pt.y <= 198 {
+            let rowIdx = min(4, max(0, Int(pt.y - 78) / 24))
+            newZone = "stock_\(rowIdx)"
+        }
+
+        // TV row hover
+        if activeTab == 3 && pt.x >= 84 && pt.x <= 302 && pt.y >= 64 && pt.y <= 200 {
+            let rowIdx = min(3, max(0, Int(pt.y - 64) / 34))
+            newZone = "tv_\(rowIdx)"
+        }
+
+        // Deals row hover
+        if activeTab == 8 && pt.x >= 84 && pt.x <= 302 && pt.y >= 64 && pt.y <= 200 {
+            let rowIdx = min(3, max(0, Int(pt.y - 64) / 34))
+            newZone = "deal_\(rowIdx)"
+        }
+
+        // Buddies row hover
+        if activeTab == 0 && pt.x >= 84 && pt.x <= 302 && pt.y >= 64 && pt.y <= 196 {
+            let rowIdx = min(3, max(0, Int(pt.y - 64) / 33))
+            newZone = "buddy_\(rowIdx)"
         }
 
         // Bottom toolbar buttons
@@ -1026,8 +1112,9 @@ final class ExcitePodView: NSView {
                 LiveServices.shared.refreshAllLiveFeeds()
                 return
             } else if pt.y >= 236 && pt.y <= 259 && pt.x >= 24 && pt.x <= 47 {
-                // Click bottom help orb
-                selectTab(0)
+                // Click bottom help orb: open Help / About dialog!
+                AssetManager.shared.playSound("wav356", enabled: soundEnabled)
+                showHelpDialog()
                 return
             }
         }
@@ -1050,16 +1137,17 @@ final class ExcitePodView: NSView {
         if activeTab == 4 {
             if pt.y >= 38 && pt.y <= 64 {
                 if pt.x >= 156 && pt.x <= 233 {
-                    LiveServices.shared.prevRadioChannel()
+                    // "< Networks" popup menu
                     AssetManager.shared.playSound("wav356", enabled: soundEnabled)
+                    showNetworksMenu(at: NSPoint(x: pt.x * pixelScale, y: pt.y * pixelScale))
                     return
                 } else if pt.x >= 233 && pt.x <= 310 {
-                    LiveServices.shared.nextRadioChannel()
+                    // "< Channel" next station
                     AssetManager.shared.playSound("wav356", enabled: soundEnabled)
+                    LiveServices.shared.nextRadioChannel()
                     return
                 }
             } else if pt.y >= 200 && pt.y <= 224 && pt.x >= 110 && pt.x <= 265 {
-                // Dragging volume wedge
                 isDraggingVolume = true
                 let vol = Float((pt.x - 114) / 148.0)
                 LiveServices.shared.setVolume(vol)
@@ -1101,13 +1189,18 @@ final class ExcitePodView: NSView {
                 AssetManager.shared.playSound("wav356", enabled: soundEnabled)
                 showOllamaSettingsDialog()
                 return
-            } else if pt.x >= 156 && pt.x < 223 {
+            } else if pt.x >= 223 {
+                // Sign In button: Excite Member Sign-In & Status dialog!
+                AssetManager.shared.playSound("wav356", enabled: soundEnabled)
+                showSignInDialog()
+                return
+            } else if pt.x >= 156 {
                 // Personalize: toggle skin
                 useSlate2000Tint.toggle()
                 AssetManager.shared.playSound("wav356", enabled: soundEnabled)
                 needsDisplay = true
                 return
-            } else if pt.x < 156 {
+            } else {
                 // Tell a Friend: open IM Chat
                 let first = LiveServices.shared.buddies.first?.handle ?? "swerndorfer@excite.com"
                 ExciteChatWindowController.shared.openChat(forHandle: first, relativeTo: window)
@@ -1159,6 +1252,155 @@ final class ExcitePodView: NSView {
         isDraggingVolume = false
         pressedTab = -1
         needsDisplay = true
+    }
+
+    // MARK: - Interactive Dialogs & Popups
+
+    func showNetworksMenu(at screenPt: NSPoint) {
+        let menu = NSMenu(title: "SomaFM Stations")
+        for (idx, st) in LiveServices.shared.stations.enumerated() {
+            let item = NSMenuItem(title: "\(st.network): \(st.name) (\(st.genre))", action: #selector(onStationSelected(_:)), keyEquivalent: "")
+            item.tag = idx
+            item.target = self
+            if idx == LiveServices.shared.currentStationIndex {
+                item.state = .on
+            }
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: menu.item(at: LiveServices.shared.currentStationIndex), at: screenPt, in: self)
+    }
+
+    @objc private func onStationSelected(_ sender: NSMenuItem) {
+        let idx = sender.tag
+        if idx >= 0 && idx < LiveServices.shared.stations.count {
+            while LiveServices.shared.currentStationIndex != idx {
+                LiveServices.shared.nextRadioChannel()
+            }
+            if !LiveServices.shared.radioPlaying {
+                LiveServices.shared.playRadio()
+            }
+            needsDisplay = true
+        }
+    }
+
+    func showSearchPrompt() {
+        let alert = NSAlert()
+        alert.messageText = "Excite Live Web Search"
+        alert.informativeText = "Enter keyword to search across Wikipedia & Web:"
+        alert.addButton(withTitle: "Search Excite")
+        alert.addButton(withTitle: "Cancel")
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        input.stringValue = LiveServices.shared.searchQuery
+        alert.accessoryView = input
+        if alert.runModal() == .alertFirstButtonReturn {
+            let q = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !q.isEmpty {
+                AssetManager.shared.playSound("wav361", enabled: soundEnabled)
+                LiveServices.shared.performLiveSearch(query: q)
+                needsDisplay = true
+            }
+        }
+    }
+
+    func showWeatherCityPrompt() {
+        let alert = NSAlert()
+        alert.messageText = "Change Weather City"
+        alert.informativeText = "Enter city name (e.g. Seattle, Austin, New York, London, Tokyo):"
+        alert.addButton(withTitle: "Update Forecast")
+        alert.addButton(withTitle: "Cancel")
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        input.stringValue = LiveServices.shared.weatherCity
+        alert.accessoryView = input
+        if alert.runModal() == .alertFirstButtonReturn {
+            let city = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !city.isEmpty {
+                AssetManager.shared.playSound("wav361", enabled: soundEnabled)
+                LiveServices.shared.updateWeatherLocation(cityQuery: city)
+                needsDisplay = true
+            }
+        }
+    }
+
+    func showSignInDialog() {
+        let alert = NSAlert()
+        alert.messageText = "Excite Member Sign In"
+        alert.informativeText = "Connect to Excite Instant Messenger & Live Services:"
+        alert.addButton(withTitle: "Sign In / Update")
+        alert.addButton(withTitle: "Cancel")
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 110))
+
+        let userLabel = NSTextField(labelWithString: "Member Name:")
+        userLabel.frame = NSRect(x: 0, y: 82, width: 100, height: 20)
+        let userField = NSTextField(frame: NSRect(x: 105, y: 80, width: 230, height: 22))
+        userField.stringValue = NSUserName()
+
+        let passLabel = NSTextField(labelWithString: "Password:")
+        passLabel.frame = NSRect(x: 0, y: 52, width: 100, height: 20)
+        let passField = NSSecureTextField(frame: NSRect(x: 105, y: 50, width: 230, height: 22))
+        passField.placeholderString = "Saved in 1Password / Keychain"
+        passField.stringValue = "••••••••••••"
+
+        let statusLabel = NSTextField(labelWithString: "Online Status:")
+        statusLabel.frame = NSRect(x: 0, y: 22, width: 100, height: 20)
+        let statusPopup = NSPopUpButton(frame: NSRect(x: 103, y: 18, width: 234, height: 24), pullsDown: false)
+        statusPopup.addItems(withTitles: ["Online", "Away", "Be Right Back", "Busy", "Invisible"])
+
+        container.addSubview(userLabel)
+        container.addSubview(userField)
+        container.addSubview(passLabel)
+        container.addSubview(passField)
+        container.addSubview(statusLabel)
+        container.addSubview(statusPopup)
+
+        alert.accessoryView = container
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            AssetManager.shared.playSound("wav357", enabled: soundEnabled)
+            let chosenStatus = statusPopup.titleOfSelectedItem ?? "Online"
+            let notify = NSAlert()
+            notify.messageText = "Signed In as \(userField.stringValue)"
+            notify.informativeText = "Status set to '\(chosenStatus)'. Connected to Excite Live Mesh & Ollama Engine."
+            notify.runModal()
+            needsDisplay = true
+        }
+    }
+
+    func showHelpDialog() {
+        let alert = NSAlert()
+        alert.messageText = "Excite Assistant & Messenger Help"
+        alert.informativeText = """
+        Excite Assistant v2.0 (1999/2026)
+
+        Tactile Appliance Navigation:
+        • 9 Scalloped Tabs: Click any tab to slide out the motorized drawer.
+        • Click Active Tab or [X] Bezel: Collapses drawer into the spine.
+        • Top Red Orb: Refreshes all live feeds and checks messages.
+        • Bottom '?' Orb: Opens this help guide.
+        • Bottom Toolbar:
+          - Tell a Friend: Opens IM chat sessions.
+          - Personalize: Toggles 1999 Tan / 2000 Slate skin.
+          - Sign In: Configures member name and online presence.
+          - Prefs: Configures Ollama AI Chatbot & 1Password.
+
+        Interactive Tab Features:
+        • Search Tab: Click the search box or 'Search' to search Wikipedia live.
+        • Weather Tab: Click the city name to change your location worldwide.
+        • Horoscopes Tab: Click the Zodiac medallion to cycle all 12 signs.
+        • TuneIn Tab: Click '< Networks' for station picker, '< Channel' to cycle.
+
+        Keyboard Shortcuts:
+        • Cmd+Q: Quit Excite Assistant
+        • Cmd+W: Close active window
+        • Cmd+1..4: Switch pod scale (1.0x, 1.25x, 1.5x, 2.0x)
+        • Cmd+D: Show / hide flyout debug controls
+        • Cmd+K: Collapse / expand sliding drawer
+        • Cmd+P: Play / pause TuneIn radio
+        • Cmd+]: Next radio channel
+        • Cmd+R: Refresh live news and feeds
+        • Cmd+,: Ollama AI & 1Password settings
+        """
+        alert.runModal()
     }
 
     func showOllamaSettingsDialog() {
